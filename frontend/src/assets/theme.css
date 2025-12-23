@@ -1,0 +1,29 @@
+/**
+ * 网上书店管理系统 - 全局主题变量
+ */
+
+:root {
+  /* 主色调 */
+  --primary-100: #f7cac9;
+  --primary-200: #5c5c5c;
+  --primary-300: #5c5c5c;
+
+  /* 强调色 */
+  --accent-100: #5c5c5c;
+  --accent-200: #ebebeb;
+
+  /* 文字颜色 */
+  --text-100: #333333;
+  --text-200: #5c5c5c;
+
+  /* 背景色 */
+  --bg-100: #fffff3;
+  --bg-200: #f5f5e9;
+  --bg-300: #ccccc0;
+
+  /* 功能色 */
+  --success: #81C784;
+  --warning: #FFB74D;
+  --error: #E57373;
+  --info: #64B5F6;
+}
