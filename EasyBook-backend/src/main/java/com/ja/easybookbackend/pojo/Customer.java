@@ -45,4 +45,7 @@ public class Customer {
     
     @JsonProperty("account_status")
     private String accountStatus;
+
+    @JsonProperty("is_admin")
+    private Boolean isAdmin;
 }

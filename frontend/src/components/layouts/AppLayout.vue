@@ -248,6 +248,11 @@ const nav_items = computed(() => {
       icon: 'mdi-alert-circle',
       path: '/admin/shortages',
     },
+    {
+      title: '客户管理',
+      icon: 'mdi-account-group',
+      path: '/admin/customers',
+    },
   ]
 
   // 根据角色返回不同菜单

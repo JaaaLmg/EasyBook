@@ -28,6 +28,7 @@ import InventoryView from '../views/admin/InventoryView.vue'
 import AdminPurchasesView from '../views/admin/AdminPurchasesView.vue'
 import SuppliersView from '../views/admin/SuppliersView.vue'
 import AdminShortagesView from '../views/admin/AdminShortagesView.vue'
+import AdminCustomersView from '../views/admin/AdminCustomersView.vue'
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -157,6 +158,13 @@ const router = createRouter({
                     name: 'AdminShortages',
                     component: AdminShortagesView,
                     meta: { title: '缺书管理', requiresAdmin: true },
+                },
+                // 后台 - 客户管理
+                {
+                    path: 'admin/customers',
+                    name: 'AdminCustomers',
+                    component: AdminCustomersView,
+                    meta: { title: '客户管理', requiresAdmin: true },
                 },
             ],
         },

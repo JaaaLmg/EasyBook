@@ -117,7 +117,7 @@
         type="info"
         variant="outlined"
         density="compact"
-        text="开发模式：默认账户 admin/Admin123"
+        text="管理员账户 admin/Admin123 | 或注册新用户"
       />
     </v-card>
   </div>
@@ -139,10 +139,10 @@ const loading = ref(false)
 const show_password = ref(false)
 const error_message = ref('')
 
-// 表单数据 - 开发环境默认值
+// 表单数据
 const form_data = reactive({
-  username: 'admin',
-  password: 'Admin123',
+  username: '',
+  password: '',
   remember: false,
 })
 
@@ -163,65 +163,33 @@ const password_rules = [
 // 登录处理
 const handle_login = async () => {
   if (!form_valid.value) return
-  
+
   loading.value = true
   error_message.value = ''
-  
+
   try {
-    // 临时处理：如果没有后端，使用开发模式账户
-    if (form_data.username === 'admin' && form_data.password === 'Admin123') {
-      const mock_user = {
-        customer_id: 'C000000001',
-        username: 'admin',
-        email: 'admin@easybook.com',
-        real_name: '管理员',
-        phone: '13800000000',
-        address: '北京市朝阳区示例路1号',
-        account_balance: 10000,
-        credit_level: 5,
-        total_purchase: 50000,
-        registration_date: new Date().toISOString(),
-        last_login: new Date().toISOString(),
-        account_status: 'active',
-        is_admin: true,
-      }
-      
-      auth_store.login('mock-token-12345', mock_user as any)
-      
-      if (form_data.remember && typeof Storage !== 'undefined') {
-        localStorage.setItem('remembered_username', form_data.username)
-        localStorage.setItem('remember_password', 'true')
-      } else {
-        localStorage.removeItem('remembered_username')
-        localStorage.removeItem('remember_password')
-      }
-      
-      router.push('/dashboard')
-      return
-    }
-    
-    // 正常API调用
+    // 调用后端API登录
     const response = await auth_api.login(
       form_data.username,
       form_data.password
     )
-    
+
     const payload = response.data.data!
     const { access_token, user } = payload
-    
+
     auth_store.login(access_token, user)
-    
+
     if (form_data.remember && typeof Storage !== 'undefined') {
       localStorage.setItem('remembered_username', form_data.username)
       localStorage.setItem('remember_password', 'true')
     }
-    
+
     router.push(user.is_admin ? '/dashboard' : '/books')
-    
+
   } catch (error: any) {
     // 如果是网络错误，给出友好提示
     if (error.message.includes('Network Error') || error.code === 'ERR_NETWORK') {
-      error_message.value = '无法连接到服务器，请检查网络连接或使用默认账户：admin/Admin123'
+      error_message.value = '无法连接到服务器，请检查网络连接'
     } else {
       error_message.value = error.message || '登录失败，请检查用户名和密码'
     }

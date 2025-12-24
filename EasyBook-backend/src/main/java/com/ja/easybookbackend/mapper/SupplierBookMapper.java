@@ -23,4 +23,7 @@ public interface SupplierBookMapper {
 
     @Delete("DELETE FROM supplier_books WHERE supplier_id = #{supplierId} AND isbn = #{isbn}")
     void delete(@Param("supplierId") String supplierId, @Param("isbn") String isbn);
+
+    @Delete("DELETE FROM supplier_books WHERE supplier_id = #{supplierId}")
+    void deleteBySupplier(@Param("supplierId") String supplierId);
 }

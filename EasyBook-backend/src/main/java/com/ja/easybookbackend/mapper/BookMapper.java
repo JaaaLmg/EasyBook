@@ -92,4 +92,7 @@ public interface BookMapper {
 
     @Update("UPDATE books SET title = #{title}, edition = #{edition}, publisher_id = #{publisherId}, publish_date = #{publishDate}, price = #{price}, page_count = #{pageCount}, format = #{format}, language = #{language}, description = #{description}, table_of_contents = #{tableOfContents}, cover_image = #{coverImage}, series_id = #{seriesId}, book_type = #{bookType}, status = #{status}, update_time = #{updateTime} WHERE isbn = #{isbn}")
     void update(Book book);
+
+    @Update("UPDATE books SET status = #{status}, update_time = NOW() WHERE isbn = #{isbn}")
+    void updateStatus(@Param("isbn") String isbn, @Param("status") String status);
 }

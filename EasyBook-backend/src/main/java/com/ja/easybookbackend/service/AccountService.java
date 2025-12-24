@@ -10,6 +10,7 @@ import com.ja.easybookbackend.pojo.Customer;
 import com.ja.easybookbackend.pojo.Order;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -24,18 +25,32 @@ public class AccountService {
     @Autowired
     private OrderMapper orderMapper;
 
+    @Transactional
     public ApiResponse<String> recharge(String customerId, double amount, String method) {
-        if (amount <= 0) {
-            return ApiResponse.error(400, "充值金额必须大于0");
+        // 使用存储过程 sp_recharge 进行充值
+        try {
+            // 准备参数Map
+            java.util.Map<String, Object> params = new HashMap<>();
+            params.put("customerId", customerId);
+            params.put("amount", amount);
+            params.put("method", method);
+
+            // 调用存储过程
+            customerMapper.callRecharge(params);
+
+            // 从OUT参数获取新余额
+            Object newBalance = params.get("newBalance");
+            return ApiResponse.success("充值成功，当前余额：" + newBalance, "");
+        } catch (Exception e) {
+            // 捕获存储过程抛出的错误（金额非法、客户不存在等）
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && errorMsg.contains("充值金额必须大于0")) {
+                return ApiResponse.error(400, "充值金额必须大于0");
+            } else if (errorMsg != null && errorMsg.contains("客户不存在")) {
+                return ApiResponse.error(404, "用户不存在");
+            }
+            return ApiResponse.error(500, "充值失败：" + errorMsg);
         }
-        Customer customer = customerMapper.findById(customerId);
-        if (customer == null) {
-            return ApiResponse.error(404, "用户不存在");
-        }
-        double newBalance = customer.getAccountBalance() + amount;
-        customer.setAccountBalance((float) newBalance);
-        customerMapper.updateBalance(customer);
-        return ApiResponse.success("充值成功", "");
     }
 
     public ApiResponse<Map<String, Object>> getBalance(String customerId) {

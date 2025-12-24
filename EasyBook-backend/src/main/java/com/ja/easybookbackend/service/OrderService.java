@@ -6,6 +6,7 @@ import com.ja.easybookbackend.mapper.*;
 import com.ja.easybookbackend.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -62,6 +63,7 @@ public class OrderService {
         return ApiResponse.success(data);
     }
 
+    @Transactional
     public ApiResponse<java.util.Map<String, Object>> create(String customerId, String shippingAddress, String recipientName, String recipientPhone, String paymentMethod, String notes) {
         List<CartService.Item> items = cartService.getItems(customerId);
         if (items == null || items.isEmpty()) {
@@ -129,57 +131,30 @@ public class OrderService {
         return ApiResponse.success(resp);
     }
 
+    @Transactional
     public ApiResponse<java.util.Map<String, Object>> pay(String orderId, String paymentMethod) {
-        Order order = orderMapper.findById(orderId);
-        if (order == null) return ApiResponse.error(404, "订单不存在");
-        List<OrderDetail> details = orderDetailMapper.listByOrder(orderId);
-        boolean stockOk = true;
-        for (OrderDetail d : details) {
-            Inventory inv = inventoryMapper.findByIsbn(d.getIsbn());
-            int qty = inv == null || inv.getQuantity() == null ? 0 : inv.getQuantity();
-            if (qty < (d.getQuantity() == null ? 0 : d.getQuantity())) {
-                stockOk = false;
-                // 生成缺书记录
-                Customer c = customerMapper.findById(order.getCustomerId());
-                String email = c == null ? null : c.getEmail();
-                String phone = c == null ? null : c.getPhone();
-                int need = (d.getQuantity() == null ? 0 : d.getQuantity()) - qty;
-                if (need > 0) {
-                    outOfStockService.createFromOrder(order.getCustomerId(), email, phone, d.getIsbn(), need);
-                }
+        // 修改：使用存储过程 sp_pay_order（只检查余额并更新状态，不扣款）
+        try {
+            // 调用存储过程进行支付确认
+            java.util.Map<String, Object> result = orderMapper.callPayOrder(orderId, paymentMethod);
+
+            // 存储过程返回的结果
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            // 捕获存储过程抛出的错误（余额不足、订单状态错误等）
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && errorMsg.contains("可用余额不足")) {
+                return ApiResponse.error(400, "可用余额不足，无法支付");
+            } else if (errorMsg != null && errorMsg.contains("订单不存在")) {
+                return ApiResponse.error(404, "订单不存在");
+            } else if (errorMsg != null && errorMsg.contains("订单状态不允许支付")) {
+                return ApiResponse.error(400, "订单状态不允许支付");
             }
+            return ApiResponse.error(500, "支付失败：" + errorMsg);
         }
-        if (!stockOk) {
-            if (!"processing".equals(order.getOrderStatus())) {
-                order.setOrderStatus("processing");
-                orderMapper.updateStatus(order);
-            }
-            return ApiResponse.error(400, "库存不足，暂不可支付");
-        }
-        Customer customer = customerMapper.findById(order.getCustomerId());
-        double balance = customer.getAccountBalance() == null ? 0.0 : customer.getAccountBalance().doubleValue();
-        boolean overdraftEnabled = (Boolean) creditService.getCurrentCreditInfo(order.getCustomerId()).getData().get("overdraft_enabled");
-        int overdraftLimit = (Integer) creditService.getCurrentCreditInfo(order.getCustomerId()).getData().get("overdraft_limit");
-        double available = balance + (overdraftEnabled ? overdraftLimit : 0);
-        double need = order.getActualAmount() == null ? 0.0 : order.getActualAmount();
-        if (need > available) {
-            return ApiResponse.error(400, "余额不足，无法支付");
-        }
-        customer.setAccountBalance((float) (balance - need));
-        customerMapper.updateBalance(customer);
-        double currentPurchase = customer.getTotalPurchase() == null ? 0.0 : customer.getTotalPurchase().doubleValue();
-        customer.setTotalPurchase((float) (currentPurchase + need));
-        customerMapper.updateTotalPurchase(customer);
-        order.setOrderStatus("paid");
-        order.setPaymentMethod(paymentMethod);
-        order.setPaymentTime(LocalDateTime.now());
-        orderMapper.updateStatus(order);
-        java.util.Map<String, Object> resp = new java.util.HashMap<>();
-        resp.put("order_status", order.getOrderStatus());
-        resp.put("payment_time", order.getPaymentTime());
-        return ApiResponse.success(resp);
     }
 
+    @Transactional
     public ApiResponse<String> cancel(String orderId) {
         Order order = orderMapper.findById(orderId);
         if (order == null) return ApiResponse.error(404, "订单不存在");
@@ -210,6 +185,7 @@ public class OrderService {
         return ApiResponse.success("订单取消成功", "");
     }
 
+    @Transactional
     public ApiResponse<String> confirm(String orderId) {
         Order order = orderMapper.findById(orderId);
         if (order == null) return ApiResponse.error(404, "订单不存在");
@@ -219,55 +195,32 @@ public class OrderService {
         return ApiResponse.success("确认收货成功", "");
     }
 
+    @Transactional
     public ApiResponse<java.util.Map<String, Object>> ship(String orderId, String deliveryCompany, String trackingNo) {
-        Order order = orderMapper.findById(orderId);
-        if (order == null) return ApiResponse.error(404, "订单不存在");
-        List<OrderDetail> details = orderDetailMapper.listByOrder(orderId);
-        for (OrderDetail d : details) {
-            Inventory inv = inventoryMapper.findByIsbn(d.getIsbn());
-            if (inv != null) {
-                int quantity = inv.getQuantity() == null ? 0 : inv.getQuantity();
-                int reserved = inv.getReservedQuantity() == null ? 0 : inv.getReservedQuantity();
-                if (quantity < (d.getQuantity() == null ? 0 : d.getQuantity())) {
-                    Customer c = customerMapper.findById(order.getCustomerId());
-                    String email = c == null ? null : c.getEmail();
-                    String phone = c == null ? null : c.getPhone();
-                    int need = (d.getQuantity() == null ? 0 : d.getQuantity()) - quantity;
-                    if (need > 0) {
-                        outOfStockService.createFromOrder(order.getCustomerId(), email, phone, d.getIsbn(), need);
-                    }
-                    return ApiResponse.error(400, "库存不足，无法发货");
-                }
-                inv.setQuantity(Math.max(0, quantity - d.getQuantity()));
-                inv.setReservedQuantity(Math.max(0, reserved - d.getQuantity()));
-                inv.setLastRestock(inv.getLastRestock());
-                inv.setLastCheck(LocalDateTime.now());
-                inventoryMapper.update(inv);
+        // 修改：使用存储过程 sp_process_delivery（发货时扣款、扣库存、释放预留、创建发货单）
+        try {
+            // 调用存储过程进行发货处理
+            java.util.Map<String, Object> result = orderMapper.callProcessDelivery(orderId, deliveryCompany, trackingNo);
+
+            // 存储过程返回的结果包含：delivery_id, delivery_no, order_status, shipping_time
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            // 捕获存储过程抛出的错误（余额不足、库存不足、订单状态错误等）
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && errorMsg.contains("订单不存在")) {
+                return ApiResponse.error(404, "订单不存在");
+            } else if (errorMsg != null && errorMsg.contains("订单未支付")) {
+                return ApiResponse.error(400, "订单未支付，无法发货");
+            } else if (errorMsg != null && errorMsg.contains("账户余额不足")) {
+                return ApiResponse.error(400, "账户余额不足，无法发货");
+            } else if (errorMsg != null && errorMsg.contains("超过透支额度")) {
+                return ApiResponse.error(400, "超过透支额度，无法发货");
             }
+            return ApiResponse.error(500, "发货失败：" + errorMsg);
         }
-        order.setOrderStatus("shipped");
-        order.setShippingTime(LocalDateTime.now());
-        orderMapper.updateStatus(order);
-
-        DeliveryOrder delivery = new DeliveryOrder();
-        delivery.setDeliveryId("D" + UUID.randomUUID().toString().substring(0, 12));
-        delivery.setOrderId(orderId);
-        delivery.setDeliveryNo("DEL" + System.currentTimeMillis());
-        delivery.setDeliveryCompany(deliveryCompany);
-        delivery.setTrackingNo(trackingNo);
-        delivery.setDeliveryAddress(order.getShippingAddress());
-        delivery.setDeliveryStatus("shipped");
-        delivery.setShippingFee(order.getShippingFee());
-        delivery.setPrepareTime(LocalDateTime.now());
-        delivery.setShipTime(LocalDateTime.now());
-        deliveryOrderMapper.insert(delivery);
-
-        java.util.Map<String, Object> resp = new java.util.HashMap<>();
-        resp.put("delivery_id", delivery.getDeliveryId());
-        resp.put("delivery_no", delivery.getDeliveryNo());
-        return ApiResponse.success(resp);
     }
 
+    @Transactional
     public ApiResponse<String> delete(String orderId) {
         Order order = orderMapper.findById(orderId);
         if (order == null) return ApiResponse.error(404, "订单不存在");
@@ -280,6 +233,7 @@ public class OrderService {
         return ApiResponse.success("订单已删除", "");
     }
 
+    @Transactional
     public void reconcileForIsbn(String isbn) {
         List<String> orderIds = orderDetailMapper.listOrderIdsByIsbn(isbn);
         if (orderIds == null || orderIds.isEmpty()) return;

@@ -384,6 +384,21 @@ export const stats_api = {
     api_client.get<ApiResponse<any>>('/admin/stats/inventory'),
 }
 
+// ============ 丛书相关接口 ============
+export const book_series_api = {
+  // 获取丛书列表
+  get_series: (params?: { keyword?: string; publisherId?: string }) =>
+    api_client.get<ApiResponse<any[]>>('/admin/book-series', { params }),
+
+  // 获取丛书详情
+  get_series_detail: (seriesId: string) =>
+    api_client.get<ApiResponse<any>>(`/admin/book-series/${seriesId}`),
+
+  // 获取丛书包含的图书
+  get_series_books: (seriesId: string) =>
+    api_client.get<ApiResponse<Book[]>>(`/admin/book-series/${seriesId}/books`),
+}
+
 // ============ 系统相关接口 ============
 export const system_api = {
   // 健康检查

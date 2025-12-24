@@ -55,4 +55,23 @@ public interface OrderMapper {
             + " <if test=\"status != null and status != ''\"> WHERE order_status = #{status} </if>"
             + "</script>")
     Integer countAll(@Param("status") String status);
+
+    // 调用存储过程：订单支付确认（只更新状态，不扣款）
+    @Select("{CALL sp_pay_order(#{orderId}, #{paymentMethod})}")
+    @Options(statementType = org.apache.ibatis.mapping.StatementType.CALLABLE)
+    @ResultType(java.util.Map.class)
+    java.util.Map<String, Object> callPayOrder(
+        @Param("orderId") String orderId,
+        @Param("paymentMethod") String paymentMethod
+    );
+
+    // 调用存储过程：处理发货（发货时扣款、扣库存、释放预留）
+    @Select("{CALL sp_process_delivery(#{orderId}, #{deliveryCompany}, #{trackingNo})}")
+    @Options(statementType = org.apache.ibatis.mapping.StatementType.CALLABLE)
+    @ResultType(java.util.Map.class)
+    java.util.Map<String, Object> callProcessDelivery(
+        @Param("orderId") String orderId,
+        @Param("deliveryCompany") String deliveryCompany,
+        @Param("trackingNo") String trackingNo
+    );
 }

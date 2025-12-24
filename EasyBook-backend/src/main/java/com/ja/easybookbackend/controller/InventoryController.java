@@ -42,4 +42,13 @@ public class InventoryController {
     public ApiResponse<java.util.List<Inventory>> lowStock() {
         return inventoryService.lowStock();
     }
+
+    /**
+     * 删除库存（软删除）
+     * DELETE /api/admin/inventory/{isbn}
+     */
+    @DeleteMapping("/{isbn}")
+    public ApiResponse<String> delete(@PathVariable("isbn") String isbn) {
+        return inventoryService.deleteInventory(isbn);
+    }
 }

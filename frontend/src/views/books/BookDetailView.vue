@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { book_api, shortage_api } from '@/api'
+import { book_api, shortage_api, book_series_api } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
-import type { BookDetail } from '@/types'
+import type { BookDetail, Book } from '@/types'
 
 const route = useRoute()
 const auth_store = useAuthStore()
@@ -18,15 +18,45 @@ const shortage_quantity = ref<number>(1)
 const shortage_remark = ref<string>('')
 const shortage_submitting = ref(false)
 
+// 丛书相关
+const series_info = ref<any>(null)
+const series_books = ref<Book[]>([])
+const series_loading = ref(false)
+
 const fetch_detail = async () => {
   try {
     loading.value = true
+    // 清空之前的丛书信息
+    series_info.value = null
+    series_books.value = []
+
     const resp = await book_api.get_book(isbn.value)
     book.value = resp.data.data || null
+
+    // 如果图书属于某个丛书，加载丛书信息
+    if (book.value?.series_id) {
+      fetch_series_info(book.value.series_id)
+    }
   } catch (error: any) {
     alert(error.response?.data?.message || '获取图书详情失败')
   } finally {
     loading.value = false
+  }
+}
+
+const fetch_series_info = async (seriesId: string) => {
+  try {
+    series_loading.value = true
+    const [detailResp, booksResp] = await Promise.all([
+      book_series_api.get_series_detail(seriesId),
+      book_series_api.get_series_books(seriesId)
+    ])
+    series_info.value = detailResp.data.data
+    series_books.value = booksResp.data.data || []
+  } catch (error: any) {
+    console.error('获取丛书信息失败:', error)
+  } finally {
+    series_loading.value = false
   }
 }
 
@@ -81,6 +111,11 @@ const submit_shortage = async () => {
     shortage_submitting.value = false
   }
 }
+
+// 监听 ISBN 变化，当用户点击丛书中的其他图书时重新加载
+watch(isbn, () => {
+  fetch_detail()
+})
 
 onMounted(fetch_detail)
 </script>
@@ -170,6 +205,72 @@ onMounted(fetch_detail)
             </div>
           </v-card-text>
         </v-card>
+
+        <!-- 丛书信息卡片 -->
+        <v-card v-if="series_info" elevation="2" class="mt-4">
+          <v-card-title>
+            <v-icon class="mr-2">mdi-book-multiple</v-icon>
+            所属丛书
+          </v-card-title>
+          <v-card-text>
+            <div class="text-h6 mb-2" style="color: var(--primary-100);">
+              {{ series_info.series_name }}
+            </div>
+            <div class="text-body-2 mb-2" style="color: var(--text-200);">
+              {{ series_info.description || '暂无描述' }}
+            </div>
+            <div class="text-caption" style="color: var(--text-200);">
+              共 {{ series_info.total_books || series_books.length }} 本
+            </div>
+          </v-card-text>
+          <v-divider />
+          <v-card-title>丛书包含的其他图书</v-card-title>
+          <v-card-text>
+            <v-row v-if="series_loading">
+              <v-col cols="12" class="text-center">
+                <v-progress-circular indeterminate color="primary" size="32" />
+              </v-col>
+            </v-row>
+            <v-row v-else>
+              <v-col
+                v-for="seriesBook in series_books.filter(b => b.isbn !== isbn)"
+                :key="seriesBook.isbn"
+                cols="12"
+                sm="6"
+                md="4"
+              >
+                <v-card
+                  :to="`/books/${seriesBook.isbn}`"
+                  hover
+                  elevation="1"
+                  class="series-book-card"
+                >
+                  <v-img
+                    :src="seriesBook.cover_image || '/placeholder-book.png'"
+                    height="160"
+                    cover
+                  />
+                  <v-card-text class="pa-2">
+                    <div class="text-subtitle-2 text-truncate">
+                      {{ seriesBook.title }}
+                    </div>
+                    <div class="text-caption" style="color: var(--text-200);">
+                      ¥{{ seriesBook.price?.toFixed(2) }}
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+            </v-row>
+            <v-alert
+              v-if="!series_loading && series_books.length <= 1"
+              type="info"
+              variant="tonal"
+              density="compact"
+            >
+              该丛书暂无其他图书
+            </v-alert>
+          </v-card-text>
+        </v-card>
       </v-col>
     </v-row>
 
@@ -217,4 +318,14 @@ onMounted(fetch_detail)
       </v-card>
     </v-dialog>
   </v-container>
-  </template>
+</template>
+
+<style scoped>
+.series-book-card {
+  transition: transform 0.2s ease;
+}
+
+.series-book-card:hover {
+  transform: translateY(-4px);
+}
+</style>

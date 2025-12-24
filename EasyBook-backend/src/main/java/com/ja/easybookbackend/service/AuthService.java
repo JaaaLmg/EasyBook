@@ -48,6 +48,7 @@ public class AuthService {
         customer.setTotalPurchase(0.0f);
         customer.setRegistrationDate(LocalDateTime.now());
         customer.setAccountStatus("active");
+        customer.setIsAdmin(false); // 新注册用户不是管理员
 
         customerMapper.insert(customer);
 
@@ -91,7 +92,7 @@ public class AuthService {
         userProfile.setRealName(customer.getRealName());
         userProfile.setPhone(customer.getPhone());
         userProfile.setAddress(customer.getAddress());
-        userProfile.setIsAdmin(false); // 简化处理，默认不是管理员
+        userProfile.setIsAdmin(customer.getIsAdmin() != null && customer.getIsAdmin()); // 从数据库读取管理员标识
         userProfile.setCreditLevel(customer.getCreditLevel());
         userProfile.setAccountBalance(Double.valueOf(customer.getAccountBalance()));
         userProfile.setTotalPurchase(Double.valueOf(customer.getTotalPurchase()));
@@ -123,7 +124,7 @@ public class AuthService {
         profile.setRealName(customer.getRealName());
         profile.setPhone(customer.getPhone());
         profile.setAddress(customer.getAddress());
-        profile.setIsAdmin(false);
+        profile.setIsAdmin(customer.getIsAdmin() != null && customer.getIsAdmin());
         profile.setCreditLevel(customer.getCreditLevel());
         profile.setAccountBalance(Double.valueOf(customer.getAccountBalance()));
         profile.setTotalPurchase(Double.valueOf(customer.getTotalPurchase()));

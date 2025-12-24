@@ -34,4 +34,64 @@ public interface CustomerMapper {
 
     @Update("UPDATE customers SET total_purchase = #{totalPurchase} WHERE customer_id = #{customerId}")
     void updateTotalPurchase(Customer customer);
+
+    @Update("UPDATE customers SET credit_level = #{creditLevel} WHERE customer_id = #{customerId}")
+    void updateCreditLevel(Customer customer);
+
+    @Update("UPDATE customers SET account_status = #{accountStatus} WHERE customer_id = #{customerId}")
+    void updateAccountStatus(Customer customer);
+
+    // 管理员分页查询所有客户
+    @Select("<script>"
+            + "SELECT * FROM customers"
+            + " <where>"
+            + "   <if test=\"keyword != null and keyword != ''\">"
+            + "     AND (username LIKE CONCAT('%', #{keyword}, '%') "
+            + "          OR real_name LIKE CONCAT('%', #{keyword}, '%') "
+            + "          OR email LIKE CONCAT('%', #{keyword}, '%'))"
+            + "   </if>"
+            + "   <if test=\"creditLevel != null\">"
+            + "     AND credit_level = #{creditLevel}"
+            + "   </if>"
+            + "   <if test=\"accountStatus != null and accountStatus != ''\">"
+            + "     AND account_status = #{accountStatus}"
+            + "   </if>"
+            + " </where>"
+            + " ORDER BY registration_date DESC"
+            + " LIMIT #{pageSize} OFFSET #{offset}"
+            + "</script>")
+    List<Customer> listAllWithFilters(@Param("keyword") String keyword,
+                                      @Param("creditLevel") Integer creditLevel,
+                                      @Param("accountStatus") String accountStatus,
+                                      @Param("pageSize") int pageSize,
+                                      @Param("offset") int offset);
+
+    @Select("<script>"
+            + "SELECT COUNT(*) FROM customers"
+            + " <where>"
+            + "   <if test=\"keyword != null and keyword != ''\">"
+            + "     AND (username LIKE CONCAT('%', #{keyword}, '%') "
+            + "          OR real_name LIKE CONCAT('%', #{keyword}, '%') "
+            + "          OR email LIKE CONCAT('%', #{keyword}, '%'))"
+            + "   </if>"
+            + "   <if test=\"creditLevel != null\">"
+            + "     AND credit_level = #{creditLevel}"
+            + "   </if>"
+            + "   <if test=\"accountStatus != null and accountStatus != ''\">"
+            + "     AND account_status = #{accountStatus}"
+            + "   </if>"
+            + " </where>"
+            + "</script>")
+    Integer countWithFilters(@Param("keyword") String keyword,
+                             @Param("creditLevel") Integer creditLevel,
+                             @Param("accountStatus") String accountStatus);
+
+    // 调用存储过程：账户充值
+    @Select("{CALL sp_recharge(" +
+            "#{customerId, mode=IN, jdbcType=VARCHAR}, " +
+            "#{amount, mode=IN, jdbcType=DECIMAL}, " +
+            "#{method, mode=IN, jdbcType=VARCHAR}, " +
+            "#{newBalance, mode=OUT, jdbcType=DECIMAL})}")
+    @Options(statementType = org.apache.ibatis.mapping.StatementType.CALLABLE)
+    void callRecharge(java.util.Map<String, Object> params);
 }

@@ -57,6 +57,9 @@ public class SupplierService {
         if (existing == null) {
             return ApiResponse.error(404, "供应商不存在");
         }
+        // 先删除关联的供应商图书记录，避免外键约束冲突或孤儿记录
+        supplierBookMapper.deleteBySupplier(supplierId);
+        // 再删除供应商
         supplierMapper.delete(supplierId);
         return ApiResponse.success("删除成功", "");
     }

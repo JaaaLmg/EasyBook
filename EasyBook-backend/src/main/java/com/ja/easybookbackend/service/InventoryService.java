@@ -119,4 +119,37 @@ public class InventoryService {
         }
         return ApiResponse.success(items);
     }
+
+    /**
+     * 软删除库存（将库存清零并标记图书为out_of_print）
+     * 采用软删除策略，避免破坏历史订单的数据完整性
+     */
+    public ApiResponse<String> deleteInventory(String isbn) {
+        Inventory inv = inventoryMapper.findByIsbn(isbn);
+        if (inv == null) {
+            return ApiResponse.error(404, "库存记录不存在");
+        }
+
+        Book book = bookMapper.findByIsbn(isbn);
+        if (book == null) {
+            return ApiResponse.error(404, "图书不存在");
+        }
+
+        // 检查是否有预留库存（表示有待发货订单）
+        int reserved = inv.getReservedQuantity() == null ? 0 : inv.getReservedQuantity();
+        if (reserved > 0) {
+            return ApiResponse.error(400, "该图书有" + reserved + "本预留库存，无法删除（存在待发货订单）");
+        }
+
+        // 软删除：将库存清零，图书状态标记为out_of_print
+        inv.setQuantity(0);
+        inv.setReservedQuantity(0);
+        inv.setLastCheck(LocalDateTime.now());
+        inventoryMapper.update(inv);
+
+        // 更新图书状态为out_of_print（绝版/下架）
+        bookMapper.updateStatus(isbn, "out_of_print");
+
+        return ApiResponse.success("库存已删除（软删除），图书已标记为out_of_print", "");
+    }
 }
