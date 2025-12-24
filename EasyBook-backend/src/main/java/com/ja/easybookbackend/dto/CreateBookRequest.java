@@ -41,6 +41,8 @@ public class CreateBookRequest {
     private List<AuthorRef> authors;
     @JsonProperty("author_names")
     private List<String> authorNames;
+    @JsonProperty("category_ids")
+    private List<String> categoryIds;
     @JsonProperty("keywords")
     private List<String> keywords;
 

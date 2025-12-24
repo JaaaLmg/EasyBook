@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { shortage_api, supplier_api } from '@/api'
+import { shortage_api, supplier_api, purchase_api } from '@/api'
 import type { OutOfStockRecord } from '@/types'
 
 const records = ref<OutOfStockRecord[]>([])
@@ -18,6 +18,22 @@ const register_form = ref<{ isbn: string; required_quantity: number; priority?: 
   remark: ''
 })
 const suppliers = ref<any[]>([])
+
+// 创建采购单对话框
+const create_purchase_dialog = ref(false)
+const create_purchase_form = ref<{
+  isbn: string
+  quantity: number
+  unit_price: number
+  supplier_id: string
+  record_id: string
+}>({
+  isbn: '',
+  quantity: 1,
+  unit_price: 0,
+  supplier_id: '',
+  record_id: ''
+})
 
 const status_options = [
   { title: '全部', value: '' },
@@ -122,6 +138,53 @@ const do_register = async () => {
   }
 }
 
+// 打开创建采购单对话框
+const open_create_purchase = async (record: OutOfStockRecord) => {
+  await fetch_suppliers()
+  create_purchase_form.value = {
+    isbn: record.isbn,
+    quantity: record.required_quantity,
+    unit_price: 0,
+    supplier_id: '',
+    record_id: record.record_id
+  }
+  create_purchase_dialog.value = true
+}
+
+// 从缺书记录创建采购单
+const create_purchase_from_shortage = async () => {
+  const f = create_purchase_form.value
+  if (!f.supplier_id) {
+    alert('请选择供应商')
+    return
+  }
+  if (!f.isbn || f.quantity <= 0) {
+    alert('请填写有效的ISBN和数量')
+    return
+  }
+
+  try {
+    // 创建采购单
+    await purchase_api.create_purchase({
+      supplier_id: f.supplier_id,
+      items: [{
+        isbn: f.isbn,
+        quantity: f.quantity,
+        unit_price: f.unit_price
+      }]
+    })
+
+    // 标记缺书记录为"处理中"
+    await shortage_api.update_shortage(f.record_id, { status: 'processing' })
+
+    alert('采购单创建成功！缺书记录已标记为"处理中"')
+    create_purchase_dialog.value = false
+    fetch_shortages()
+  } catch (error: any) {
+    alert(error.response?.data?.message || '创建采购单失败')
+  }
+}
+
 onMounted(fetch_shortages)
 </script>
 
@@ -218,6 +281,15 @@ onMounted(fetch_shortages)
                 <td class="v-align-center">
                   <v-btn
                     size="small"
+                    variant="tonal"
+                    color="primary"
+                    @click="open_create_purchase(r)"
+                    :disabled="r.status === 'resolved' || r.status === 'cancelled'"
+                  >
+                    创建采购单
+                  </v-btn>
+                  <v-btn
+                    size="small"
                     variant="text"
                     @click="update_status(r.record_id, 'processing')"
                   >
@@ -271,6 +343,59 @@ onMounted(fetch_shortages)
           <v-spacer />
           <v-btn variant="text" @click="register_dialog = false">取消</v-btn>
           <v-btn color="primary" @click="do_register">提交</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- 创建采购单对话框 -->
+    <v-dialog v-model="create_purchase_dialog" max-width="600">
+      <v-card>
+        <v-card-title>从缺书记录创建采购单</v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            系统将根据此缺书记录自动创建采购单，并将记录状态标记为"处理中"
+          </v-alert>
+
+          <v-text-field
+            v-model="create_purchase_form.isbn"
+            label="ISBN"
+            variant="outlined"
+            density="compact"
+            readonly
+          />
+
+          <v-text-field
+            v-model.number="create_purchase_form.quantity"
+            label="采购数量"
+            type="number"
+            min="1"
+            variant="outlined"
+            density="compact"
+          />
+
+          <v-text-field
+            v-model.number="create_purchase_form.unit_price"
+            label="单价"
+            type="number"
+            min="0"
+            step="0.01"
+            variant="outlined"
+            density="compact"
+            hint="请输入采购单价"
+          />
+
+          <v-select
+            v-model="create_purchase_form.supplier_id"
+            :items="suppliers.map(s => ({ title: s.supplier_name, value: s.supplier_id }))"
+            label="供应商"
+            variant="outlined"
+            density="compact"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="create_purchase_dialog = false">取消</v-btn>
+          <v-btn color="primary" @click="create_purchase_from_shortage">创建采购单</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

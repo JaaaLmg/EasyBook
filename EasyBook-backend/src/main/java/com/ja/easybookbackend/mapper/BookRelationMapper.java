@@ -11,6 +11,12 @@ public interface BookRelationMapper {
     @Delete("DELETE FROM book_authors WHERE isbn = #{isbn}")
     void deleteBookAuthors(@Param("isbn") String isbn);
 
+    @Delete("DELETE FROM book_categories WHERE isbn = #{isbn}")
+    void deleteBookCategories(@Param("isbn") String isbn);
+
+    @Insert("INSERT INTO book_categories(isbn, category_id) VALUES(#{isbn}, #{categoryId})")
+    void insertBookCategory(@Param("isbn") String isbn, @Param("categoryId") String categoryId);
+
     @Select("SELECT * FROM keywords WHERE keyword = #{keyword} LIMIT 1")
     Keyword findKeywordByText(@Param("keyword") String keyword);
 

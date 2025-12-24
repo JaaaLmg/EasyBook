@@ -31,4 +31,8 @@ public interface InventoryMapper {
     @Insert("INSERT INTO inventory(inventory_id, isbn, quantity, safety_stock, reserved_quantity, location_code, warehouse, last_restock, last_check) "
             + "VALUES(#{inventoryId}, #{isbn}, #{quantity}, #{safetyStock}, #{reservedQuantity}, #{locationCode}, #{warehouse}, #{lastRestock}, #{lastCheck})")
     void insert(Inventory inventory);
+
+    // 清空库存（软删除图书时使用）
+    @Update("UPDATE inventory SET quantity = 0, reserved_quantity = 0, last_check = NOW() WHERE isbn = #{isbn}")
+    void clearInventory(@Param("isbn") String isbn);
 }

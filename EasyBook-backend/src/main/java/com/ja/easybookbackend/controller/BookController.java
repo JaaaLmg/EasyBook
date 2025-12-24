@@ -50,4 +50,15 @@ public class BookController {
     public ApiResponse<Book> create(@RequestBody CreateBookRequest request) {
         return bookService.createBook(request);
     }
+
+    @PutMapping("/{isbn}")
+    public ApiResponse<Book> update(@PathVariable("isbn") String isbn,
+                                    @RequestBody CreateBookRequest request) {
+        return bookService.updateBook(isbn, request);
+    }
+
+    @DeleteMapping("/{isbn}")
+    public ApiResponse<String> delete(@PathVariable("isbn") String isbn) {
+        return bookService.deleteBook(isbn);
+    }
 }

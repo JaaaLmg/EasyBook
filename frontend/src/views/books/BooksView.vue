@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { book_api } from '@/api'
+import { book_api, shortage_api } from '@/api'
 import { useBooksStore } from '@/stores/books'
 import { useCartStore } from '@/stores/cart'
 import { useAuthStore } from '@/stores/auth'
@@ -24,6 +24,14 @@ const selected_publisher = ref<string>('')
 const min_price = ref<number>()
 const max_price = ref<number>()
 const sort_by = ref('default')
+
+// 询价对话框
+const inquiry_dialog = ref(false)
+const inquiry_form = ref({
+  isbn: '',
+  required_quantity: 1,
+  remark: ''
+})
 
 // 获取图书列表
 const fetch_books = async () => {
@@ -97,6 +105,52 @@ const discounted_price = computed(() => {
     return price * (1 - rate)
   }
 })
+
+// 打开询价对话框
+const open_inquiry_dialog = () => {
+  if (!auth_store.is_authenticated) {
+    alert('请先登录后再进行询价')
+    return
+  }
+
+  // 预填充搜索的ISBN或关键字
+  inquiry_form.value = {
+    isbn: keyword.value || '',
+    required_quantity: 1,
+    remark: ''
+  }
+  inquiry_dialog.value = true
+}
+
+// 提交询价
+const submit_inquiry = async () => {
+  const form = inquiry_form.value
+
+  // 验证
+  if (!form.isbn || !form.isbn.trim()) {
+    alert('请输入ISBN或书名')
+    return
+  }
+
+  if (form.required_quantity < 1) {
+    alert('需求数量必须大于0')
+    return
+  }
+
+  try {
+    await shortage_api.register_shortage({
+      isbn: form.isbn.trim(),
+      required_quantity: form.required_quantity,
+      remark: form.remark || '客户询价',
+      source_type: 'customer'
+    })
+
+    alert('询价登记成功！我们会尽快为您查询并报价')
+    inquiry_dialog.value = false
+  } catch (error: any) {
+    alert(error.response?.data?.message || '询价登记失败')
+  }
+}
 
 // 页面挂载时获取数据
 onMounted(async () => {
@@ -306,6 +360,36 @@ onMounted(async () => {
         <div class="text-h6 mt-4" style="color: var(--text-200);">
           没有找到图书
         </div>
+        <div v-if="keyword" class="text-body-2 mt-2" style="color: var(--text-300);">
+          搜索"{{ keyword }}"没有匹配的结果
+        </div>
+
+        <!-- 询价按钮 -->
+        <v-card elevation="2" class="mx-auto mt-6" max-width="500">
+          <v-card-text>
+            <div class="d-flex align-center">
+              <v-icon color="primary" class="mr-3" size="large">mdi-help-circle-outline</v-icon>
+              <div class="text-left">
+                <div class="text-subtitle-1 font-weight-medium">找不到您需要的图书？</div>
+                <div class="text-caption" style="color: var(--text-200);">
+                  提交询价需求，我们会为您查询并报价
+                </div>
+              </div>
+            </div>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer />
+            <v-btn
+              color="primary"
+              variant="tonal"
+              prepend-icon="mdi-book-search"
+              @click="open_inquiry_dialog"
+            >
+              提交询价需求
+            </v-btn>
+            <v-spacer />
+          </v-card-actions>
+        </v-card>
       </v-col>
     </v-row>
 
@@ -319,6 +403,67 @@ onMounted(async () => {
         />
       </v-col>
     </v-row>
+
+    <!-- 询价对话框 -->
+    <v-dialog v-model="inquiry_dialog" max-width="600">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" color="primary">mdi-book-search</v-icon>
+          提交询价需求
+        </v-card-title>
+
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            <div class="text-caption">
+              <strong>询价流程：</strong>
+              <ol class="mt-2 ml-4">
+                <li>填写图书 ISBN 或书名及需求数量</li>
+                <li>我们会向供应商询价并在系统中录入图书信息</li>
+                <li>获得报价后通过邮件/电话通知您</li>
+                <li>您确认后我们将为您采购</li>
+              </ol>
+            </div>
+          </v-alert>
+
+          <v-text-field
+            v-model="inquiry_form.isbn"
+            label="ISBN 或书名"
+            variant="outlined"
+            density="compact"
+            hint="请输入图书的 ISBN 编号或书名"
+            persistent-hint
+            class="mb-2"
+          />
+
+          <v-text-field
+            v-model.number="inquiry_form.required_quantity"
+            label="需求数量"
+            type="number"
+            min="1"
+            variant="outlined"
+            density="compact"
+            class="mb-2"
+          />
+
+          <v-textarea
+            v-model="inquiry_form.remark"
+            label="备注说明（可选）"
+            variant="outlined"
+            density="compact"
+            rows="3"
+            hint="如有特殊要求或其他说明，请在此填写"
+            persistent-hint
+            placeholder="例如：需要特定版本、装帧要求等"
+          />
+        </v-card-text>
+
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="inquiry_dialog = false">取消</v-btn>
+          <v-btn color="primary" @click="submit_inquiry">提交询价</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 

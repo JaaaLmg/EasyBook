@@ -41,9 +41,13 @@ public class OutOfStockService {
 
     public ApiResponse<OutOfStockRecord> register(String isbn, Integer requiredQuantity, Integer priority, String remark, String sourceType, String customerId, String supplierId) {
         Book book = bookMapper.findByIsbn(isbn);
-        if (book == null) {
+
+        // 允许客户询价系统中不存在的新书
+        // 只有在非客户询价且图书不存在时才报错
+        if (book == null && !"customer".equals(sourceType)) {
             return ApiResponse.error(404, "图书不存在");
         }
+
         List<OutOfStockRecord> existing = outOfStockRecordMapper.findActiveByIsbn(isbn);
         if (existing != null && !existing.isEmpty()) {
             OutOfStockRecord r = existing.getFirst();
@@ -56,9 +60,18 @@ public class OutOfStockService {
         OutOfStockRecord r = new OutOfStockRecord();
         r.setRecordId(genId("OS", 20));
         r.setIsbn(isbn);
-        r.setBookTitle(book.getTitle());
-        Publisher pub = publisherMapper.findById(book.getPublisherId());
-        r.setPublisherName(pub == null ? null : pub.getPublisherName());
+
+        // 如果图书存在，使用真实书名；否则直接使用 isbn 参数作为临时书名
+        // （因为客户可能在 isbn 字段输入的是书名而不是真实 ISBN）
+        r.setBookTitle(book == null ? isbn : book.getTitle());
+
+        // 只有图书存在时才查询出版社
+        if (book != null) {
+            Publisher pub = publisherMapper.findById(book.getPublisherId());
+            r.setPublisherName(pub == null ? null : pub.getPublisherName());
+        } else {
+            r.setPublisherName(null);
+        }
         r.setRequiredQuantity(requiredQuantity == null ? 1 : requiredQuantity);
         if (customerId != null && !customerId.isBlank()) {
             com.ja.easybookbackend.pojo.Customer c = customerMapper.findById(customerId);

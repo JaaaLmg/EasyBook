@@ -397,6 +397,28 @@ export const book_series_api = {
   // 获取丛书包含的图书
   get_series_books: (seriesId: string) =>
     api_client.get<ApiResponse<Book[]>>(`/admin/book-series/${seriesId}/books`),
+
+  // 创建丛书
+  create_series: (data: {
+    series_name: string
+    publisher_id: string
+    total_books?: number
+    description?: string
+  }) =>
+    api_client.post<ApiResponse<any>>('/admin/book-series', data),
+
+  // 更新丛书
+  update_series: (seriesId: string, data: {
+    series_name?: string
+    publisher_id?: string
+    total_books?: number
+    description?: string
+  }) =>
+    api_client.put<ApiResponse<any>>(`/admin/book-series/${seriesId}`, data),
+
+  // 删除丛书
+  delete_series: (seriesId: string) =>
+    api_client.delete<ApiResponse<null>>(`/admin/book-series/${seriesId}`),
 }
 
 // ============ 系统相关接口 ============

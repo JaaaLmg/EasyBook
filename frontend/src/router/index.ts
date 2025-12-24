@@ -24,11 +24,13 @@ import AccountView from '../views/account/AccountView.vue'
 
 // 后台页面 (管理员)
 import AdminOrdersView from '../views/admin/AdminOrdersView.vue'
+import AdminBooksView from '../views/admin/AdminBooksView.vue'
 import InventoryView from '../views/admin/InventoryView.vue'
 import AdminPurchasesView from '../views/admin/AdminPurchasesView.vue'
 import SuppliersView from '../views/admin/SuppliersView.vue'
 import AdminShortagesView from '../views/admin/AdminShortagesView.vue'
 import AdminCustomersView from '../views/admin/AdminCustomersView.vue'
+import BookSeriesView from '../views/admin/BookSeriesView.vue'
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -121,6 +123,13 @@ const router = createRouter({
                     component: DashboardView,
                     meta: { title: '仪表板', requiresAdmin: true },
                 },
+                // 后台 - 图书管理
+                {
+                    path: 'admin/books',
+                    name: 'AdminBooks',
+                    component: AdminBooksView,
+                    meta: { title: '图书管理', requiresAdmin: true },
+                },
                 // 后台 - 订单管理
                 {
                     path: 'admin/orders',
@@ -165,6 +174,13 @@ const router = createRouter({
                     name: 'AdminCustomers',
                     component: AdminCustomersView,
                     meta: { title: '客户管理', requiresAdmin: true },
+                },
+                // 后台 - 丛书管理
+                {
+                    path: 'admin/book-series',
+                    name: 'BookSeries',
+                    component: BookSeriesView,
+                    meta: { title: '丛书管理', requiresAdmin: true },
                 },
             ],
         },

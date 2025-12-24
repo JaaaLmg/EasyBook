@@ -13,17 +13,6 @@ const detail_isbn = ref('')
 const detail_book = ref<any>(null)
 const detail_inventory = ref<any>(null)
 
-const new_book_dialog = ref(false)
-const publishers = ref<any[]>([])
-const new_book_isbn = ref('')
-const new_book_title = ref('')
-const new_book_publisher = ref('')
-const new_book_price = ref<number | null>(null)
-const new_book_authors = ref<string[]>([])
-const new_book_initial_stock = ref<number | null>(null)
-const new_book_safety_stock = ref<number | null>(10)
-const new_book_location = ref<string | null>(null)
-const new_book_warehouse = ref<string>('main')
 // 调整库存对话框
 const adjust_dialog = ref(false)
 const adjust_isbn = ref('')
@@ -92,54 +81,6 @@ const open_detail = async (isbn: string) => {
   }
 }
 
-const open_new_book_dialog = async () => {
-  try {
-    const resp = await book_api.get_publishers()
-    publishers.value = resp.data.data || []
-    new_book_isbn.value = ''
-    new_book_title.value = ''
-    new_book_publisher.value = ''
-    new_book_price.value = null
-    new_book_authors.value = []
-    new_book_initial_stock.value = null
-    new_book_safety_stock.value = 10
-    new_book_location.value = null
-    new_book_warehouse.value = 'main'
-    new_book_dialog.value = true
-  } catch (error: any) {
-    alert(error.response?.data?.message || '获取出版社失败')
-  }
-}
-
-const submit_new_book = async () => {
-  if (!new_book_isbn.value || !new_book_title.value || !new_book_publisher.value || new_book_price.value == null) {
-    alert('请填写完整的必填信息')
-    return
-  }
-  try {
-    const payload: any = {
-      isbn: new_book_isbn.value,
-      title: new_book_title.value,
-      publisher_id: new_book_publisher.value,
-      price: Number(new_book_price.value),
-      author_names: new_book_authors.value,
-      initial_stock: Number(new_book_initial_stock.value || 0),
-      safety_stock: Number(new_book_safety_stock.value || 10),
-      location_code: new_book_location.value || undefined,
-      warehouse: new_book_warehouse.value || 'main',
-      language: 'zh',
-      book_type: 'normal',
-      status: 'active'
-    }
-    await book_api.create_book(payload)
-    alert('新书入库成功')
-    new_book_dialog.value = false
-    fetch_inventory()
-  } catch (error: any) {
-    alert(error.response?.data?.message || '新书入库失败')
-  }
-}
-
 // 打开调整对话框
 const open_adjust_dialog = (isbn: string) => {
   adjust_isbn.value = isbn
@@ -200,11 +141,6 @@ onMounted(() => {
       <v-col cols="12">
         <v-card elevation="2">
           <v-card-text>
-            <div class="mb-3">
-              <v-btn color="primary" variant="flat" @click="open_new_book_dialog">
-                新书入库
-              </v-btn>
-            </div>
             <v-btn-toggle
               v-model="selected_status"
               color="primary"
@@ -447,101 +383,6 @@ onMounted(() => {
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="detail_dialog = false">关闭</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- 新书入库对话框 -->
-    <v-dialog v-model="new_book_dialog" max-width="700">
-      <v-card>
-        <v-card-title>新书入库</v-card-title>
-        <v-card-text>
-          <v-form>
-            <v-text-field
-              v-model="new_book_isbn"
-              label="ISBN"
-              variant="outlined"
-              density="compact"
-            />
-            <v-text-field
-              v-model="new_book_title"
-              label="书名"
-              variant="outlined"
-              density="compact"
-            />
-            <v-select
-              v-model="new_book_publisher"
-              :items="publishers"
-              item-title="publisher_name"
-              item-value="publisher_id"
-              label="出版社"
-              variant="outlined"
-              density="compact"
-            />
-            <v-text-field
-              v-model.number="new_book_price"
-              label="价格"
-              type="number"
-              :min="0"
-              variant="outlined"
-              density="compact"
-            />
-            <v-combobox
-              v-model="new_book_authors"
-              :items="[]"
-              multiple
-              label="作者（最多4个，按顺序）"
-              variant="outlined"
-              density="compact"
-              hint="输入并回车添加作者"
-              persistent-hint
-            />
-            <v-row>
-              <v-col cols="6">
-                <v-text-field
-                  v-model.number="new_book_initial_stock"
-                  label="初始库存"
-                  type="number"
-                  :min="0"
-                  variant="outlined"
-                  density="compact"
-                />
-              </v-col>
-              <v-col cols="6">
-                <v-text-field
-                  v-model.number="new_book_safety_stock"
-                  label="安全库存"
-                  type="number"
-                  :min="0"
-                  variant="outlined"
-                  density="compact"
-                />
-              </v-col>
-            </v-row>
-            <v-row>
-              <v-col cols="6">
-                <v-text-field
-                  v-model="new_book_location"
-                  label="存放位置编码"
-                  variant="outlined"
-                  density="compact"
-                />
-              </v-col>
-              <v-col cols="6">
-                <v-text-field
-                  v-model="new_book_warehouse"
-                  label="仓库"
-                  variant="outlined"
-                  density="compact"
-                />
-              </v-col>
-            </v-row>
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="new_book_dialog = false">取消</v-btn>
-          <v-btn color="primary" @click="submit_new_book">确认入库</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

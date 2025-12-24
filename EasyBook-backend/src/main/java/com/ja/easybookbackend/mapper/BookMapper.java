@@ -95,4 +95,8 @@ public interface BookMapper {
 
     @Update("UPDATE books SET status = #{status}, update_time = NOW() WHERE isbn = #{isbn}")
     void updateStatus(@Param("isbn") String isbn, @Param("status") String status);
+
+    // 软删除：将图书状态设为 inactive（已下架）
+    @Update("UPDATE books SET status = 'inactive', update_time = NOW() WHERE isbn = #{isbn}")
+    void softDelete(@Param("isbn") String isbn);
 }

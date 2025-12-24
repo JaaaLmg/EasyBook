@@ -224,6 +224,11 @@ const nav_items = computed(() => {
       path: '/dashboard',
     },
     {
+      title: '图书管理',
+      icon: 'mdi-book-open-variant',
+      path: '/admin/books',
+    },
+    {
       title: '订单管理',
       icon: 'mdi-clipboard-text',
       path: '/admin/orders',
@@ -252,6 +257,11 @@ const nav_items = computed(() => {
       title: '客户管理',
       icon: 'mdi-account-group',
       path: '/admin/customers',
+    },
+    {
+      title: '丛书管理',
+      icon: 'mdi-book-multiple',
+      path: '/admin/book-series',
     },
   ]
 

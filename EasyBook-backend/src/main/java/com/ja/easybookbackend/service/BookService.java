@@ -235,4 +235,97 @@ public class BookService {
 
         return ApiResponse.success(book);
     }
+
+    @Transactional
+    public ApiResponse<Book> updateBook(String isbn, CreateBookRequest req) {
+        if (req == null) {
+            return ApiResponse.error(400, "请求体为空");
+        }
+
+        // 检查图书是否存在
+        Book book = bookMapper.findByIsbn(isbn);
+        if (book == null) {
+            return ApiResponse.error(404, "图书不存在");
+        }
+
+        // 更新基本信息
+        if (req.getTitle() != null) book.setTitle(req.getTitle());
+        if (req.getEdition() != null) book.setEdition(req.getEdition());
+        if (req.getPublisherId() != null) book.setPublisherId(req.getPublisherId());
+        if (req.getPublishDate() != null && !req.getPublishDate().isEmpty()) {
+            book.setPublishDate(LocalDate.parse(req.getPublishDate()));
+        }
+        if (req.getPrice() != null) book.setPrice(req.getPrice());
+        if (req.getPageCount() != null) book.setPageCount(req.getPageCount());
+        if (req.getFormat() != null) book.setFormat(req.getFormat());
+        if (req.getLanguage() != null) book.setLanguage(req.getLanguage());
+        if (req.getDescription() != null) book.setDescription(req.getDescription());
+        if (req.getTableOfContents() != null) book.setTableOfContents(req.getTableOfContents());
+        if (req.getCoverImage() != null) book.setCoverImage(req.getCoverImage());
+        if (req.getSeriesId() != null) book.setSeriesId(req.getSeriesId());
+        if (req.getBookType() != null) book.setBookType(req.getBookType());
+        if (req.getStatus() != null) book.setStatus(req.getStatus());
+        book.setUpdateTime(LocalDateTime.now());
+
+        bookMapper.update(book);
+
+        // 更新作者关系（先删除旧的，再添加新的）
+        if (req.getAuthorNames() != null && !req.getAuthorNames().isEmpty()) {
+            // 删除旧的作者关系
+            bookRelationMapper.deleteBookAuthors(isbn);
+
+            // 添加新的作者
+            int order = 1;
+            for (String name : req.getAuthorNames()) {
+                if (name == null || name.isBlank()) continue;
+                Author found = authorMapper.findByName(name.trim());
+                if (found == null) {
+                    Author a = new Author();
+                    a.setAuthorId(genId("A", 10));
+                    a.setAuthorName(name.trim());
+                    a.setNationality(null);
+                    a.setBirthDate(null);
+                    a.setBiography(null);
+                    a.setCreateTime(LocalDateTime.now());
+                    authorMapper.insert(a);
+                    found = a;
+                }
+                bookRelationMapper.insertBookAuthor(isbn, found.getAuthorId(), order);
+                order++;
+                if (order > 4) break;
+            }
+        }
+
+        // 更新分类关系（先删除旧的，再添加新的）
+        if (req.getCategoryIds() != null) {
+            bookRelationMapper.deleteBookCategories(isbn);
+            for (String categoryId : req.getCategoryIds()) {
+                if (categoryId != null && !categoryId.isEmpty()) {
+                    bookRelationMapper.insertBookCategory(isbn, categoryId);
+                }
+            }
+        }
+
+        return ApiResponse.success(book);
+    }
+
+    @Transactional
+    public ApiResponse<String> deleteBook(String isbn) {
+        // 检查图书是否存在
+        Book book = bookMapper.findByIsbn(isbn);
+        if (book == null) {
+            return ApiResponse.error(404, "图书不存在");
+        }
+
+        // 检查是否有待处理订单（防止删除有订单的图书）
+        // 这里简化处理，直接软删除
+
+        // 软删除：将状态设为 out_of_print
+        bookMapper.softDelete(isbn);
+
+        // 同时将库存清零
+        inventoryMapper.clearInventory(isbn);
+
+        return ApiResponse.success("图书已删除");
+    }
 }
