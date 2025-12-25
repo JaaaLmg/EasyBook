@@ -77,6 +77,14 @@ public class AuthService {
             return ApiResponse.error(400, "用户名或密码错误");
         }
 
+        // 检查账户状态
+        if ("closed".equals(customer.getAccountStatus())) {
+            return ApiResponse.error(403, "该账户已被注销");
+        }
+        if ("frozen".equals(customer.getAccountStatus())) {
+            return ApiResponse.error(403, "该账户已被冻结，请联系管理员");
+        }
+
         // 更新最后登录时间
         customer.setLastLogin(LocalDateTime.now());
         customerMapper.updateLastLogin(customer);
@@ -184,5 +192,32 @@ public class AuthService {
         customerMapper.updatePassword(customer);
 
         return ApiResponse.success("密码修改成功", "");
+    }
+
+    /**
+     * 删除账户（客户自己删除，需要验证密码）
+     *
+     * @param customerId 用户ID
+     * @param password 当前密码
+     * @return 删除结果
+     */
+    public ApiResponse<String> deleteAccount(String customerId, String password) {
+        Customer customer = customerMapper.findById(customerId);
+        if (customer == null) {
+            return ApiResponse.error(404, "用户不存在");
+        }
+
+        // 验证密码
+        if (!PasswordEncoder.matches(password, customer.getPasswordHash())) {
+            return ApiResponse.error(400, "密码错误，无法删除账户");
+        }
+
+        // 检查是否有未完成的订单
+        // TODO: 可以添加订单检查逻辑，防止有未完成订单时删除账户
+
+        // 软删除：将账户状态设为 closed
+        customerMapper.softDelete(customerId);
+
+        return ApiResponse.success("账户已注销", "");
     }
 }

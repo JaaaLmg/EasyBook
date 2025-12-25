@@ -253,16 +253,16 @@
               <v-divider />
 
               <v-list-item>
-                <v-list-item-title class="text-error">清除所有数据</v-list-item-title>
-                <v-list-item-subtitle>永久删除所有个人数据（不可恢复）</v-list-item-subtitle>
+                <v-list-item-title class="text-error">删除账户</v-list-item-title>
+                <v-list-item-subtitle>永久注销账户（需要输入密码确认，不可恢复）</v-list-item-subtitle>
                 <template #append>
                   <v-btn
-                    @click="show_clear_data_dialog = true"
+                    @click="show_delete_account_dialog = true"
                     variant="outlined"
                     size="small"
                     color="error"
                   >
-                    清除
+                    删除账户
                   </v-btn>
                 </template>
               </v-list-item>
@@ -306,6 +306,51 @@
       </v-card>
     </v-dialog>
 
+    <!-- 删除账户确认对话框 -->
+    <v-dialog v-model="show_delete_account_dialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="text-error d-flex align-center">
+          <v-icon class="mr-2" size="large">mdi-alert-circle</v-icon>
+          确认删除账户
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="error" variant="tonal" class="mb-4">
+            <div class="text-subtitle-2 font-weight-bold mb-2">警告：此操作不可逆！</div>
+            <ul class="text-body-2 ml-4">
+              <li>您的账户将被永久注销</li>
+              <li>所有个人信息将被删除</li>
+              <li>历史订单记录将被保留用于财务审计</li>
+              <li>账户余额将无法找回</li>
+            </ul>
+          </v-alert>
+
+          <v-text-field
+            v-model="delete_password"
+            label="请输入您的密码以确认"
+            type="password"
+            variant="outlined"
+            density="comfortable"
+            placeholder="输入密码"
+            :error-messages="delete_password_error"
+            @keyup.enter="confirm_delete_account"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="cancel_delete_account" :disabled="deleting_account">取消</v-btn>
+          <v-btn
+            @click="confirm_delete_account"
+            :loading="deleting_account"
+            :disabled="!delete_password"
+            color="error"
+            variant="elevated"
+          >
+            确认删除账户
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- 清除数据确认对话框 -->
     <v-dialog v-model="show_clear_data_dialog" max-width="400">
       <v-card>
@@ -327,11 +372,21 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import { useRouter } from 'vue-router'
+import { auth_api } from '@/api'
+
+const auth_store = useAuthStore()
+const router = useRouter()
 
 const active_section = ref('security')
 const show_login_logs = ref(false)
 const show_clear_data_dialog = ref(false)
+const show_delete_account_dialog = ref(false)
 const exporting = ref(false)
+const deleting_account = ref(false)
+const delete_password = ref('')
+const delete_password_error = ref('')
 
 const snackbar = reactive({
   show: false,
@@ -467,17 +522,55 @@ const clear_all_data = async () => {
   try {
     // 实际实现中这里会调用API
     localStorage.removeItem('bookstore_settings')
-    
+
     snackbar.message = '数据已清除'
     snackbar.color = 'success'
     snackbar.show = true
-    
+
   } catch (error) {
     snackbar.message = '清除失败'
     snackbar.color = 'error'
     snackbar.show = true
   }
   show_clear_data_dialog.value = false
+}
+
+// 取消删除账户
+const cancel_delete_account = () => {
+  show_delete_account_dialog.value = false
+  delete_password.value = ''
+  delete_password_error.value = ''
+}
+
+// 确认删除账户
+const confirm_delete_account = async () => {
+  if (!delete_password.value) {
+    delete_password_error.value = '请输入密码'
+    return
+  }
+
+  delete_password_error.value = ''
+  deleting_account.value = true
+
+  try {
+    await auth_api.delete_account(delete_password.value)
+
+    // 删除成功，清除本地数据并退出登录
+    auth_store.logout()
+
+    snackbar.message = '账户已成功注销'
+    snackbar.color = 'success'
+    snackbar.show = true
+
+    // 延迟跳转到登录页
+    setTimeout(() => {
+      router.push('/login')
+    }, 2000)
+
+  } catch (error: any) {
+    delete_password_error.value = error.response?.data?.message || '删除失败，请检查密码是否正确'
+    deleting_account.value = false
+  }
 }
 
 onMounted(() => {

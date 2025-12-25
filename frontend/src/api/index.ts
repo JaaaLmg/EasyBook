@@ -58,6 +58,10 @@ export const auth_api = {
     new_password: string
   }) =>
     api_client.post<ApiResponse<null>>('/auth/change-password', data),
+
+  // 删除账户（需要验证密码）
+  delete_account: (password: string) =>
+    api_client.delete<ApiResponse<null>>('/auth/profile', { data: { password } }),
 }
 
 // ============ 图书相关接口 ============

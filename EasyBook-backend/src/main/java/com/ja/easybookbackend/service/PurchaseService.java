@@ -164,14 +164,8 @@ public class PurchaseService {
             d.setReceivedQuantity(totalToReceive);
             d.setStatus(totalToReceive >= d.getQuantity() ? "complete" : "partial");
             purchaseDetailMapper.update(d);
-            Inventory inv = inventoryMapper.findByIsbn(isbn);
-            if (inv != null) {
-                int q = inv.getQuantity() == null ? 0 : inv.getQuantity();
-                inv.setQuantity(q + qty);
-                inv.setLastRestock(LocalDateTime.now());
-                inv.setLastCheck(LocalDateTime.now());
-                inventoryMapper.update(inv);
-            }
+            // 注意：库存增加由数据库触发器 tr_purchase_received 负责（基于 received_quantity 的增量）
+            // 这里不要再手动更新 inventory.quantity，否则会导致入库数量翻倍。
         }
         boolean allComplete = true;
         details = purchaseDetailMapper.listByPurchase(purchaseId);

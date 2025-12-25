@@ -41,6 +41,10 @@ public interface CustomerMapper {
     @Update("UPDATE customers SET account_status = #{accountStatus} WHERE customer_id = #{customerId}")
     void updateAccountStatus(Customer customer);
 
+    // 删除客户（软删除：将状态设为 closed）
+    @Update("UPDATE customers SET account_status = 'closed' WHERE customer_id = #{customerId}")
+    void softDelete(@Param("customerId") String customerId);
+
     // 管理员分页查询所有客户
     @Select("<script>"
             + "SELECT * FROM customers"

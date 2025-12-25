@@ -65,4 +65,21 @@ public class AuthController {
         String customerId = JwtUtil.validateToken(token);
         return authService.changePassword(customerId, request);
     }
+
+    /**
+     * 删除账户（需要验证密码）
+     */
+    @DeleteMapping("/profile")
+    public ApiResponse<String> deleteAccount(@RequestHeader("Authorization") String authorization,
+                                             @RequestBody java.util.Map<String, Object> body) {
+        String token = authorization.replace("Bearer ", "");
+        String customerId = JwtUtil.validateToken(token);
+        String password = (String) body.get("password");
+
+        if (password == null || password.isEmpty()) {
+            return ApiResponse.error(400, "请输入密码以确认删除");
+        }
+
+        return authService.deleteAccount(customerId, password);
+    }
 }

@@ -159,4 +159,21 @@ public class AdminCustomerController {
         String statusText = status.equals("active") ? "激活" : (status.equals("frozen") ? "冻结" : "关闭");
         return ApiResponse.success("账户已" + statusText, "");
     }
+
+    /**
+     * 管理员删除客户账户（软删除）
+     * DELETE /api/admin/customers/{customerId}
+     */
+    @DeleteMapping("/{customerId}")
+    public ApiResponse<String> deleteCustomer(@PathVariable String customerId) {
+        Customer customer = customerMapper.findById(customerId);
+        if (customer == null) {
+            return ApiResponse.error(404, "客户不存在");
+        }
+
+        // 软删除：将账户状态设为 closed
+        customerMapper.softDelete(customerId);
+
+        return ApiResponse.success("客户账户已删除", "");
+    }
 }

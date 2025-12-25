@@ -182,11 +182,22 @@
         <v-card-title class="text-error">确认删除账户</v-card-title>
         <v-card-text>
           此操作不可逆转。删除账户将永久移除您的所有数据。
+
+          <v-text-field
+            v-model="delete_password"
+            class="mt-4"
+            label="请输入当前密码以确认"
+            type="password"
+            variant="outlined"
+            prepend-inner-icon="mdi-lock"
+            :disabled="loading"
+            :rules="[(v) => !!v || '请输入密码']"
+          />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn @click="show_delete_dialog = false">取消</v-btn>
-          <v-btn @click="delete_account" color="error" variant="elevated">
+          <v-btn @click="delete_account" :disabled="!delete_password" :loading="loading" color="error" variant="elevated">
             确认删除
           </v-btn>
         </v-card-actions>
@@ -234,6 +245,7 @@ const form_valid = ref(false)
 const loading = ref(false)
 const show_delete_dialog = ref(false)
 const show_phone_dialog = ref(false)
+const delete_password = ref('')
 const new_phone = ref('')
 const phone_form_ref = ref()
 const phone_form_valid = ref(false)
@@ -328,10 +340,33 @@ const save_profile = async () => {
 }
 
 const delete_account = async () => {
-  snackbar.message = '删除账户功能暂未实现，请联系管理员'
-  snackbar.color = 'error'
-  snackbar.show = true
-  show_delete_dialog.value = false
+  if (!delete_password.value) {
+    snackbar.message = '请输入密码以确认删除'
+    snackbar.color = 'error'
+    snackbar.show = true
+    return
+  }
+
+  loading.value = true
+  try {
+    await auth_api.delete_account(delete_password.value)
+
+    // 注销成功：清理本地登录态并跳转登录页
+    auth_store.logout()
+    snackbar.message = '账户已注销'
+    snackbar.color = 'success'
+    snackbar.show = true
+
+    show_delete_dialog.value = false
+    delete_password.value = ''
+    await router.push('/auth/login')
+  } catch (error: any) {
+    snackbar.message = error.message || '注销失败'
+    snackbar.color = 'error'
+    snackbar.show = true
+  } finally {
+    loading.value = false
+  }
 }
 
 const open_phone_dialog = () => {
